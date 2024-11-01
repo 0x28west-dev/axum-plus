@@ -1,0 +1,22 @@
+[package]
+name = "axum-plus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.83"
+axum = "0.7.7"
+derive-new = "0.7.0"
+tower-layer = "0.3.3"
+tower-service = "0.3.3"
+tracing = "0.1.40"
+std_plus = { git = "https://github.com/0x28west-dev/std-plus", rev = "f149f32e0c03641bd7b9a092e95d9658acad98d0" }
+
+[dev-dependencies]
+anyhow = "1.0.92"
+bytes = "1.7.1"
+futures-util = "0.3.30"
+http-body = "1.0.1"
+http-body-util = "0.1.2"
+tokio = { version = "1.41.0", features = ["full"] }
+tower = { version = "0.5.1", features = ["full"] }
