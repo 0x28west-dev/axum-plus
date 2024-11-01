@@ -1,5 +1,5 @@
 [package]
-name = "axum-plus"
+name = "axum_plus"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,7 +10,10 @@ derive-new = "0.7.0"
 tower-layer = "0.3.3"
 tower-service = "0.3.3"
 tracing = "0.1.40"
+
+# Extension
 std_plus = { git = "https://github.com/0x28west-dev/std-plus", rev = "f149f32e0c03641bd7b9a092e95d9658acad98d0" }
+axum_plus = {git = "https://github.com/0x28west-dev/axum-plus", rev = "a4771e33e1a7b94f65ac1d4a0b5b04d3674102c8" }
 
 [dev-dependencies]
 anyhow = "1.0.92"
