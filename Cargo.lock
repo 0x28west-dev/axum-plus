@@ -107,7 +107,7 @@ dependencies = [
  "futures-util",
  "http-body",
  "http-body-util",
- "std_plus",
+ "std-plus",
  "tokio",
  "tower",
  "tower-layer",
@@ -998,9 +998,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "std_plus"
+name = "std-plus"
 version = "0.1.0"
-source = "git+https://github.com/0x28west-dev/std-plus?rev=f149f32e0c03641bd7b9a092e95d9658acad98d0#f149f32e0c03641bd7b9a092e95d9658acad98d0"
+source = "git+https://github.com/0x28west-dev/std-plus?rev=99a17bbb1670065574eb8346f8ddfcac2dc69450#99a17bbb1670065574eb8346f8ddfcac2dc69450"
 dependencies = [
  "base64",
  "derive-new",
