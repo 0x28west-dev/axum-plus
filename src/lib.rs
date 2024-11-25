@@ -4,15 +4,51 @@ use std::{
 };
 
 use axum::{
-    extract::FromRequestParts,
-    http::{request::Parts, Request, StatusCode},
+    extract::{rejection::JsonRejection, FromRequest, FromRequestParts, Request},
+    http::{request::Parts, StatusCode},
+    Json,
 };
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std_plus::new;
 use tower_layer::Layer;
 use tower_service::Service;
+use validator::{Validate, ValidationErrors};
+
+#[derive(Deserialize)]
+pub struct Body<T>(T);
+
+pub trait FromBody<E>: Validate {
+    type Error;
+
+    fn json_error(err: E) -> Self::Error;
+    fn validate_error(err: ValidationErrors) -> Self::Error;
+}
+
+const BAD_REQUEST: StatusCode = StatusCode::BAD_REQUEST;
+
+#[async_trait::async_trait]
+impl<S, T> FromRequest<S> for Body<T>
+where
+    S: Send + Sync,
+    T: Send + Sync + FromBody<JsonRejection> + DeserializeOwned,
+    <T as FromBody<JsonRejection>>::Error: Serialize,
+{
+    type Rejection = (StatusCode, Json<T::Error>);
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let Json(Body(body)) = Json::<Body<T>>::from_request(req, state)
+            .await
+            .map_err(|err| (BAD_REQUEST, Json(T::json_error(err))))?;
+
+        body.validate()
+            .map_err(|err| (BAD_REQUEST, Json(T::validate_error(err))))?;
+
+        Ok(Body(body))
+    }
+}
 
 #[macro_export]
-macro_rules! static_s {
+macro_rules! static_service {
     ($data:expr) => {{
         $crate::StaticLayer::new($data)
     }};
@@ -101,7 +137,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::{static_s, Static};
+    use crate::{static_service, Static};
     use anyhow::{anyhow, Result};
     use axum::http::{Request, Response};
     use bytes::Bytes;
@@ -156,8 +192,8 @@ mod test {
         let data: &'static Data = to_static!(Data, Data::new("West"));
 
         let res = ServiceBuilder::new()
-            .layer(static_s!(data))
-            .layer(static_s!(&*ENCODER))
+            .layer(static_service!(data))
+            .layer(static_service!(&*ENCODER))
             .service(service_fn(handler))
             .oneshot(Request::new(Body::empty()))
             .await?
