@@ -4,7 +4,7 @@ use std::{
 };
 
 use axum::{
-    extract::{rejection::JsonRejection, FromRequest, FromRequestParts, Request},
+    extract::{FromRequest, FromRequestParts, Request},
     http::{request::Parts, StatusCode},
     Json,
 };
@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std_plus::new;
 use tower_layer::Layer;
 use tower_service::Service;
-use validator::{Validate, ValidationErrors};
+use validator::Validate;
 
 #[derive(Deserialize)]
 pub struct Body<T>(T);
@@ -20,8 +20,8 @@ pub struct Body<T>(T);
 pub trait BodyError: Validate {
     type Error;
 
-    fn json_error(err: JsonRejection) -> Self::Error;
-    fn validate_error(err: ValidationErrors) -> Self::Error;
+    fn json_error(err: axum::extract::rejection::JsonRejection) -> Self::Error;
+    fn validate_error(err: validator::ValidationErrors) -> Self::Error;
 }
 
 const BAD_REQUEST: StatusCode = StatusCode::BAD_REQUEST;
