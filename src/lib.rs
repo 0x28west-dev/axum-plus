@@ -15,9 +15,11 @@ use tower_service::Service;
 use validator::Validate;
 
 #[derive(Deserialize)]
-pub struct Body<T>(T);
+pub struct Body<T>(T)
+where
+    T: Validate;
 
-pub trait BodyError: Validate {
+pub trait BodyError {
     type Error;
 
     fn json_error(err: axum::extract::rejection::JsonRejection) -> Self::Error;
@@ -30,7 +32,7 @@ const BAD_REQUEST: StatusCode = StatusCode::BAD_REQUEST;
 impl<S, T> FromRequest<S> for Body<T>
 where
     S: Send + Sync,
-    T: Send + Sync + BodyError + DeserializeOwned,
+    T: Send + Sync + BodyError + DeserializeOwned + Validate,
     <T as BodyError>::Error: Serialize,
 {
     type Rejection = (StatusCode, Json<T::Error>);
