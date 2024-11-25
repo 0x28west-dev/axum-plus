@@ -15,7 +15,7 @@ use tower_service::Service;
 use validator::Validate;
 
 #[derive(Deserialize)]
-pub struct Body<T>(T)
+pub struct Body<T>(pub T)
 where
     T: Validate;
 
