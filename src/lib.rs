@@ -17,10 +17,10 @@ use validator::{Validate, ValidationErrors};
 #[derive(Deserialize)]
 pub struct Body<T>(T);
 
-pub trait FromBody<E>: Validate {
+pub trait BodyError: Validate {
     type Error;
 
-    fn json_error(err: E) -> Self::Error;
+    fn json_error(err: JsonRejection) -> Self::Error;
     fn validate_error(err: ValidationErrors) -> Self::Error;
 }
 
@@ -30,8 +30,8 @@ const BAD_REQUEST: StatusCode = StatusCode::BAD_REQUEST;
 impl<S, T> FromRequest<S> for Body<T>
 where
     S: Send + Sync,
-    T: Send + Sync + FromBody<JsonRejection> + DeserializeOwned,
-    <T as FromBody<JsonRejection>>::Error: Serialize,
+    T: Send + Sync + BodyError + DeserializeOwned,
+    <T as BodyError>::Error: Serialize,
 {
     type Rejection = (StatusCode, Json<T::Error>);
 
