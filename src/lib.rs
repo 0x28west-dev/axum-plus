@@ -1,5 +1,7 @@
 use std::{
     any::type_name,
+    borrow::Cow,
+    collections::HashMap,
     task::{Context, Poll},
 };
 
@@ -9,10 +11,10 @@ use axum::{
     Json,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std_plus::new;
+use std_plus::{new, string};
 use tower_layer::Layer;
 use tower_service::Service;
-use validator::Validate;
+use validator::{Validate, ValidationError, ValidationErrors};
 
 macro_rules! create_status_code {
     ($($ident:ident),*) => {
@@ -88,37 +90,86 @@ create_status_code!(
     NOT_EXTENDED,
     NETWORK_AUTHENTICATION_REQUIRED
 );
-
 #[derive(Deserialize)]
-pub struct Body<T>(pub T)
-where
-    T: Validate;
+pub struct Body<T>(pub T);
 
-pub trait BodyError {
-    type Error;
+type Store = HashMap<Cow<'static, str>, Vec<(Cow<'static, str>, Cow<'static, str>)>>;
 
-    fn json_error(err: axum::extract::rejection::JsonRejection) -> Self::Error;
-    fn validate_error(err: validator::ValidationErrors) -> Self::Error;
+#[derive(new, Debug, Serialize)]
+pub struct Error {
+    reason: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    messages: Option<Store>,
 }
 
 #[async_trait::async_trait]
 impl<S, T> FromRequest<S> for Body<T>
 where
     S: Send + Sync,
-    T: Send + Sync + BodyError + DeserializeOwned + Validate,
-    <T as BodyError>::Error: Serialize,
+    T: Send + Sync + DeserializeOwned + Validate,
 {
-    type Rejection = (StatusCode, Json<T::Error>);
+    type Rejection = (StatusCode, Json<Error>);
 
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         let Json(Body(body)) = Json::<Body<T>>::from_request(req, state)
             .await
-            .map_err(|err| (BAD_REQUEST, Json(T::json_error(err))))?;
+            .map_err(|_| {
+                let error = Error::new(string!("Failed to parsed the body into valid json!"), None);
+                (BAD_REQUEST, Json(error))
+            })?;
 
-        body.validate()
-            .map_err(|err| (BAD_REQUEST, Json(T::validate_error(err))))?;
+        if let Err(err) = body.validate() {
+            let mut store = HashMap::new();
+            make_error(None, &err, &mut store);
+            let mut error = Error::new(string!("Invalid payload data!"), None);
+
+            if !store.is_empty() {
+                error.messages = Some(store)
+            };
+
+            return Err((BAD_REQUEST, Json(error)));
+        };
 
         Ok(Body(body))
+    }
+}
+
+fn make_error(key: Option<&str>, err: &ValidationErrors, store: &mut Store) {
+    if err.is_empty() {
+        return;
+    };
+
+    use validator::ValidationErrorsKind::*;
+
+    fn compute_err(err: &ValidationError, column_key: &str, store_key: &str, store: &mut Store) {
+        if let Some(ref message) = err.message {
+            if let Some(message_store) = store.get_mut(store_key) {
+                message_store.push((Cow::Owned(column_key.to_string()), message.clone()));
+                return;
+            }
+            // Key didn't exist create the vec and populate it
+            store.insert(
+                Cow::Owned(store_key.to_string()),
+                vec![(Cow::Owned(column_key.to_string()), message.clone())],
+            );
+        }
+    }
+
+    for (column_key, value) in err.0.iter() {
+        match value {
+            Field(fields) => {
+                for field in fields {
+                    compute_err(field, column_key, key.unwrap_or(&column_key), store)
+                }
+            }
+            Struct(errors) => make_error(Some(&column_key), &**errors, store),
+            List(errors) => {
+                for (_, error) in errors {
+                    make_error(Some(&column_key), &**error, store);
+                }
+            }
+        }
     }
 }
 
